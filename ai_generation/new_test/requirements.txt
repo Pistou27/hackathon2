@@ -1,0 +1,25 @@
+# ────────── cœurs LLM ──────────
+torch==2.7.1+cpu               # wheel CPU Windows/Linux
+transformers==4.54.0
+sentencepiece==0.2.0           # tokenizers mT5/BART
+accelerate==0.27.2             # requis par diffusers, transformers
+safetensors>=0.5.3
+
+# ────────── RAG / embeddings / similitude ──────────
+sentence-transformers==2.7.0
+scikit-learn==1.5.0            # SimilarityChecker (cosine)
+
+# ────────── Diffusion (image) ──────────
+diffusers==0.28.0              # Stable Diffusion Turbo
+Pillow>=10.3.0
+
+# ────────── PDF / DOCX parsing (optionnel) ──────────
+pdfplumber==0.11.0             # extraction texte PDF
+python-docx==1.1.1
+
+# ────────── Web UI & job scheduling ──────────
+streamlit==1.35.0
+schedule==1.2.1
+
+# ────────── NLP utilitaires ──────────
+nltk==3.9.2                    # découpage en phrases

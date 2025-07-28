@@ -66,8 +66,8 @@ def evaluate_adversarial(path="adversarial_prompts.txt"):
 evaluate_pipeline()
 evaluate_adversarial() """
 
-from hackathon2.ai_generation.generation import TextGenerator
-from summarization import TextSummarizer
+from article_generator import ArticleGenerator   # nouveau générateur léger
+from summarization     import TextSummarizer     # même fichier, même classe
 from similarity import SimilarityChecker
 from data_loader import load_sample_imdb_dataset
 from loguru import logger
@@ -78,7 +78,7 @@ ppl_metric = load_metric("perplexity", model_id="gpt2-medium")  # HF evaluate
 
 def evaluate_pipeline(n=50, save_db="runs/history.sqlite"):
     ds = load_sample_imdb_dataset(sample_size=n)
-    gen = TextGenerator(max_new_tokens=120)
+    gen  = ArticleGenerator(max_new_tokens=400)
     sumr = TextSummarizer()
     sim = SimilarityChecker()
 

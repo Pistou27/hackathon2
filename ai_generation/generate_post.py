@@ -1,4 +1,4 @@
-from transformers import GPT2Tokenizer, GPT2LMHeadModel
+""" from transformers import GPT2Tokenizer, GPT2LMHeadModel
 from peft import PeftModel, PeftConfig
 import torch
 
@@ -38,3 +38,11 @@ with torch.no_grad():
 generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
 print("\n📝 Post généré :\n")
 print(generated_text)
+ """
+
+from hackathon2.ai_generation.generation import TextGenerator
+import sys
+
+gen = TextGenerator(model_path="./gpt2_lora_finetuned")
+prompt = " ".join(sys.argv[1:]) or "Write a LinkedIn post about collaborative AI:"
+print(gen.generate(prompt))

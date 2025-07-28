@@ -1,5 +1,5 @@
 from data_loader import load_sample_imdb_dataset
-from generation import TextGenerator
+from hackathon2.ai_generation.generation import TextGenerator
 from summarization import TextSummarizer
 from similarity import SimilarityChecker
 from ethical_filter import ethical_filter  # Ajout du filtre

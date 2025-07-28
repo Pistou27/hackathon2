@@ -1,0 +1,6 @@
+ai_generation/__pycache__/
+
+ai_generation/hack_venv/
+venv/
+.venv/
+env/

@@ -1,36 +1,32 @@
 from data_loader import load_sample_imdb_dataset
 from ethical_filter import ethical_filter
-from generation import TextGenerator
+from hackathon2.ai_generation.generation import TextGenerator
 from summarization import TextSummarizer
 from similarity import SimilarityChecker
+from loguru import logger
 import datetime
 
+logger.add("runs/pipeline.log", rotation="500 KB", serialize=True)  # JSON log file
 
 def run_pipeline(nb_exemples=3):
-    # Initialisation modules
-    dataset = load_sample_imdb_dataset(sample_size=nb_exemples)
+    dataset   = load_sample_imdb_dataset(sample_size=nb_exemples)
     generator = TextGenerator(max_length=80)
     summarizer = TextSummarizer()
-    checker = SimilarityChecker()
+    checker    = SimilarityChecker()
 
-    print(f"\n=== PIPELINE DÉMARRÉ — {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ===")
+    logger.info(f"PIPELINE DÉMARRÉ — {datetime.datetime.now():%Y-%m-%d %H:%M:%S}")
     for i, example in enumerate(dataset):
         prompt = example["text"][:100].replace('\n', ' ').strip()
         generated = generator.generate(prompt)
-        summary = summarizer.summarize(generated)
-        score = checker.compare(prompt, summary)
-        ethics = ethical_filter(generated)
+        summary   = summarizer.summarize(generated)
+        score     = checker.compare(prompt, summary)
+        ethics    = ethical_filter(generated)
 
-        print(f"\n🔹 Extrait {i+1}")
-        print("Prompt :", prompt)
-        print("Généré :", generated)
-        print("Résumé :", summary)
-        print(f"Filtrage éthique : {ethics['status']}")
+        logger.success(f"Extrait {i+1} | Sim={score:.3f} | Ethic={ethics['status']}")
         if ethics["flagged"]:
-            print(f"  Label : {ethics['label']}, Score : {ethics['score']:.2f}")
+            logger.warning(f"Toxic label={ethics['label']} score={ethics['score']:.2f}")
 
-    print("\nPipeline terminé.")
-
+    logger.info("Pipeline terminé.")
 
 if __name__ == "__main__":
     run_pipeline(nb_exemples=3)
