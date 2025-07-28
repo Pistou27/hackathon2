@@ -17,12 +17,17 @@ schedule==1.2.1
 
 # 📂 Dataset IMDB
 datasets==2.19.1
+accelerate>=0.20.3
+peft>=0.4.0
 
 # 🛡️ Filtrage éthique / contenu offensant
 better-profanity==0.7.0
 
 # 🌐 Interface web interactive
 streamlit==1.35.0
+
+# PDF parsing
+PyPDF2==3.0.1
 
 # ⚙️ Utilitaires (optionnel)
 numpy==1.26.4

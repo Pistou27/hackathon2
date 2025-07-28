@@ -15,7 +15,7 @@ class TextSummarizer:
         self.max_input_length = max_input_length
         self.max_summary_length = max_summary_length
 
-    def summarize(self, text: str) -> str:
+    def summarize(self, text: str, max_length=100, min_length=10, do_sample=False) -> str:
         """
         Résume un texte donné
 
@@ -35,10 +35,12 @@ class TextSummarizer:
 
         summary_ids = self.model.generate(
             inputs["input_ids"],
-            max_length=self.max_summary_length,
+            max_length=max_length,
+            min_length=min_length,
             length_penalty=2.0,
             num_beams=4,
-            early_stopping=True
+            early_stopping=True,
+            do_sample=do_sample
         )
 
         summary = self.tokenizer.decode(summary_ids[0], skip_special_tokens=True)
