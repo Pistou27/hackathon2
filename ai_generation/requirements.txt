@@ -1,0 +1,28 @@
+# 🧠 NLP & LLMs
+transformers==4.41.1
+sentence-transformers==2.6.1
+
+# 📊 Évaluation
+nltk==3.8.1
+rouge-score==0.1.2
+scikit-learn==1.5.0
+
+# 🖼️ VAE et PyTorch
+torch==2.3.0
+torchvision==0.18.0
+matplotlib==3.8.4
+
+# 🗓️ Planification
+schedule==1.2.1
+
+# 📂 Dataset IMDB
+datasets==2.19.1
+
+# 🛡️ Filtrage éthique / contenu offensant
+better-profanity==0.7.0
+
+# 🌐 Interface web interactive
+streamlit==1.35.0
+
+# ⚙️ Utilitaires (optionnel)
+numpy==1.26.4
