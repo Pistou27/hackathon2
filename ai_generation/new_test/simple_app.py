@@ -46,7 +46,7 @@ st.set_page_config(page_title="Mini-pipeline Blog", page_icon="📝", layout="wi
 st.title("📝 Article · 📰 Résumé · 🎨 Image")
 
 topic = st.text_input("Sujet de l'article", placeholder="Ex. : L'IA générative en 2025")
-temperature = st.slider("Créativité (temperature GPT-2)", 0.2, 1.2, 0.8, 0.1)
+temperature = st.slider("Créativité (temperature GPT-2)",0.2, 0.8, 0.35, 0.05)
 btn = st.button("Générer le pipeline")
 
 # ──────────────────────────────────────────────
@@ -95,8 +95,19 @@ if btn and topic.strip():
         """,
         unsafe_allow_html=True
     )
-    if sim_score < 0.3:
-        st.warning("Le résumé semble peu représentatif de l'article (sim < 0.30).")
+    max_try = 3
+    for attempt in range(1, max_try + 1):
+        with st.spinner(f"🧠 Génération de l'article… (essai {attempt})"):
+            article = gen.generate(topic, temperature=temperature)
+
+        sim_score = simch.compare(article, topic)      # 0-1
+        if sim_score >= 0.15:
+            break
+        st.warning("Le texte semble peu corrélé au sujet ; nouvelle tentative…")
+
+    else:  # boucle terminée sans break
+        st.error("Impossible d'obtenir un article suffisamment lié au sujet.")
+        st.stop()
 
     st.subheader("Filtrage éthique")
     if filt["flagged"]:
