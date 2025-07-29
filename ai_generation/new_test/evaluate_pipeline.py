@@ -73,12 +73,14 @@ from data_loader import load_sample_imdb_dataset
 from loguru import logger
 from evaluate import load as load_metric
 import numpy as np, json, sqlite3, os, torch
+import sys
+print("Python utilisé :", sys.executable)
 
 ppl_metric = load_metric("perplexity", module_type="metric", model_id="gpt2-medium")
 
-def evaluate_pipeline(n=50, save_db="runs/history.sqlite"):
+def evaluate_pipeline(n=3, save_db="runs/history.sqlite"):
     ds = load_sample_imdb_dataset(sample_size=n)
-    gen  = ArticleGenerator(max_new_tokens=400)
+    gen = ArticleGenerator()
     sumr = TextSummarizer()
     sim = SimilarityChecker()
 
@@ -88,8 +90,9 @@ def evaluate_pipeline(n=50, save_db="runs/history.sqlite"):
         prompt = ex["text"][:200].replace("\n", " ")
         generated = gen.generate(prompt)
         summary = sumr.summarize(generated)
-        rouge = rouge_metric.compute(predictions=[summary], references=[generated])["rougeL"].mid.fmeasure
-        ppl = ppl_metric.compute(predictions=[generated])["perplexities"][0]
+        rouge_score = rouge_metric.compute(predictions=[summary], references=[generated])
+        rouge = rouge_score["rougeL"] if isinstance(rouge_score["rougeL"], float) else rouge_score["rougeL"].mid.fmeasure
+        ppl = ppl_metric.compute(predictions=[generated], model_id="gpt2-medium")["perplexities"][0]
         s = sim.compare(prompt, summary)
         results.append((rouge, ppl, s))
 
@@ -113,3 +116,8 @@ def evaluate_pipeline(n=50, save_db="runs/history.sqlite"):
     cur.execute("INSERT INTO evals VALUES (datetime('now'),?,?,?,?,?)",
             (n, r_mean, p_mean, s_mean, "v1"))
     conn.commit(); conn.close()
+    
+    
+if __name__ == "__main__":
+    print("▶️ Lancement de l'évaluation du pipeline…")
+    evaluate_pipeline(n=50)
