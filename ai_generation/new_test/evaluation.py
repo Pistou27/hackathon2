@@ -71,10 +71,10 @@ from summarization     import TextSummarizer     # même fichier, même classe
 from similarity import SimilarityChecker
 from data_loader import load_sample_imdb_dataset
 from loguru import logger
-from datasets import load_metric
+from evaluate import load as load_metric
 import numpy as np, json, sqlite3, os, torch
 
-ppl_metric = load_metric("perplexity", model_id="gpt2-medium")  # HF evaluate
+ppl_metric = load_metric("perplexity", module_type="metric", model_id="gpt2-medium")
 
 def evaluate_pipeline(n=50, save_db="runs/history.sqlite"):
     ds = load_sample_imdb_dataset(sample_size=n)
@@ -83,11 +83,12 @@ def evaluate_pipeline(n=50, save_db="runs/history.sqlite"):
     sim = SimilarityChecker()
 
     results = []
+    rouge_metric = load_metric("rouge")
     for ex in ds:
         prompt = ex["text"][:200].replace("\n", " ")
         generated = gen.generate(prompt)
         summary = sumr.summarize(generated)
-        rouge = load_metric("rouge").compute(predictions=[summary], references=[generated])["rougeL"].mid.fmeasure
+        rouge = rouge_metric.compute(predictions=[summary], references=[generated])["rougeL"].mid.fmeasure
         ppl = ppl_metric.compute(predictions=[generated])["perplexities"][0]
         s = sim.compare(prompt, summary)
         results.append((rouge, ppl, s))
@@ -101,8 +102,14 @@ def evaluate_pipeline(n=50, save_db="runs/history.sqlite"):
     os.makedirs("runs", exist_ok=True)
     conn = sqlite3.connect(save_db)
     cur = conn.cursor()
-    cur.execute("""CREATE TABLE IF NOT EXISTS evals
-        (ts TEXT, n INT, rouge REAL, ppl REAL, sim REAL)""")
-    cur.execute("INSERT INTO evals VALUES (datetime('now'),?,?,?,?)",
-                (n, r_mean, p_mean, s_mean))
+    cur.execute("""CREATE TABLE IF NOT EXISTS evals (
+        ts TEXT,
+        n INT,
+        rouge REAL,
+        ppl REAL,
+        sim REAL,
+        model TEXT DEFAULT 'default'
+    )""")
+    cur.execute("INSERT INTO evals VALUES (datetime('now'),?,?,?,?,?)",
+            (n, r_mean, p_mean, s_mean, "v1"))
     conn.commit(); conn.close()

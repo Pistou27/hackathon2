@@ -16,6 +16,17 @@ from ethical_filter_v2  import ethical_filter          # ou ethical_filter
 from image_gen          import ImageGenerator          # SD-Turbo
 
 # ──────────────────────────────────────────────
+# 1. Interface
+# ──────────────────────────────────────────────
+st.set_page_config(page_title="Mini-pipeline Blog", page_icon="📝", layout="wide")
+st.title("📝 Article · 📰 Résumé · 🎨 Image")
+
+topic = st.text_input("Sujet de l'article", placeholder="Ex. : L'IA générative en 2025")
+gen_image = st.checkbox("Générer une illustration avec Stable Diffusion", value=True)
+#temperature = st.slider("Créativité (temperature GPT-2)",0.2, 0.8, 0.35, 0.05)
+btn = st.button("Générer le pipeline")
+
+# ──────────────────────────────────────────────
 # 0. Mise en cache des modèles (chargés 1 fois)
 # ──────────────────────────────────────────────
 @st.cache_resource(show_spinner="🔄 Chargement article_generator…")
@@ -28,7 +39,7 @@ def get_summarizer():
 
 @st.cache_resource(show_spinner=False)
 def get_img_gen():
-    return ImageGenerator()                       # Stable Diffusion Turbo
+    return ImageGenerator(steps=15)                       # Stable Diffusion Turbo
 
 @st.cache_resource(show_spinner=False)
 def get_similarity():
@@ -39,15 +50,7 @@ summ  = get_summarizer()
 imgg  = get_img_gen()
 simch = get_similarity()
 
-# ──────────────────────────────────────────────
-# 1. Interface
-# ──────────────────────────────────────────────
-st.set_page_config(page_title="Mini-pipeline Blog", page_icon="📝", layout="wide")
-st.title("📝 Article · 📰 Résumé · 🎨 Image")
 
-topic = st.text_input("Sujet de l'article", placeholder="Ex. : L'IA générative en 2025")
-temperature = st.slider("Créativité (temperature GPT-2)",0.2, 0.8, 0.35, 0.05)
-btn = st.button("Générer le pipeline")
 
 # ──────────────────────────────────────────────
 # 2. Pipeline
@@ -55,7 +58,10 @@ btn = st.button("Générer le pipeline")
 if btn and topic.strip():
     # 2.1 Article
     with st.spinner("🧠 Génération de l'article…"):
-        article = gen.generate(topic, temperature=temperature)
+        article = gen.generate(topic)
+    if article.lower().count("sexy") > 5 or article.count("Article:") > 5:
+        st.error("⚠️ Article incohérent ou absurde détecté. Veuillez réessayer ou ajuster la température.")
+        st.stop()
 
     # 2.2 Résumé
     with st.spinner("📚 Résumé…"):
@@ -68,12 +74,22 @@ if btn and topic.strip():
     # 2.4 Filtrage éthique
     with st.spinner("🔍 Filtrage éthique…"):
         filt = ethical_filter(summary)
-
+        
     # 2.5 Image
-    with st.spinner("🎨 Génération de l'image…"):
-        tmp_dir  = tempfile.gettempdir()
-        img_path = os.path.join(tmp_dir, f"img_{dt.datetime.now():%H%M%S}.png")
-        img_path = imgg.generate(topic, path=img_path)
+    img_path = None  # Par défaut
+
+    if gen_image:
+        prompt = f"{topic}, vector illustration, flat design, clean lines, vibrant colors"
+        with st.spinner("🎨 Génération de l'image…"):
+            tmp_dir  = tempfile.gettempdir()
+            img_path = os.path.join(tmp_dir, f"img_{dt.datetime.now():%H%M%S}.png")
+            img_path = imgg.generate(
+                prompt,
+                negative="text, watermark, lowres, distorted, blurry",
+                path=img_path
+            )
+
+
 
     # ──────────────────────────────────────────
     # 3. Affichage
@@ -95,19 +111,6 @@ if btn and topic.strip():
         """,
         unsafe_allow_html=True
     )
-    max_try = 3
-    for attempt in range(1, max_try + 1):
-        with st.spinner(f"🧠 Génération de l'article… (essai {attempt})"):
-            article = gen.generate(topic, temperature=temperature)
-
-        sim_score = simch.compare(article, topic)      # 0-1
-        if sim_score >= 0.15:
-            break
-        st.warning("Le texte semble peu corrélé au sujet ; nouvelle tentative…")
-
-    else:  # boucle terminée sans break
-        st.error("Impossible d'obtenir un article suffisamment lié au sujet.")
-        st.stop()
 
     st.subheader("Filtrage éthique")
     if filt["flagged"]:
@@ -116,5 +119,6 @@ if btn and topic.strip():
     else:
         st.success("✅ Aucun contenu problématique détecté.")
 
-    st.subheader("Illustration générée")
-    st.image(img_path, caption="Stable Diffusion Turbo")
+    if gen_image and img_path:
+        st.subheader("Illustration générée")
+        st.image(img_path, caption="Stable Diffusion")

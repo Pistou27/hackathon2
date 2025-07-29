@@ -1,41 +1,28 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import torch, textwrap
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+import torch
 
 class ArticleGenerator:
-    """
-    Génère un article court (≤300 mots) sur un sujet.
-    Par défaut : beam-search déterministe → moins d’hallucinations.
-    """
-
-    def __init__(self, model_id: str = "distilgpt2", max_new: int = 380):
+    def __init__(self, model_id="MBZUAI/LaMini-Flan-T5-783M", max_new=380):
         self.tokenizer = AutoTokenizer.from_pretrained(model_id)
-        self.model     = AutoModelForCausalLM.from_pretrained(model_id)
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(model_id)
         self.model.eval()
-        self.max_new   = max_new
+        self.max_new = max_new
 
-    def generate(self, topic: str, temperature: float = 0.35) -> str:
-        """
-        topic       : sujet de l'article
-        temperature : 0.2-0.6 recommandé (créativité modérée)
-        """
+    def generate(self, topic: str) -> str:
         prompt = (
-            "Rédige un article clair et structuré (max 300 mots).\n"
-            "Sujet : " + topic + "\n"
-            "Tonalité : informative, synthétique.\n"
-            "Évite le code, les digressions hors-sujet et les anglicismes.\n\n"
-            "Article :\n"
+            f"Écris un article de blog structuré (250 à 300 mots) sur le thème suivant : {topic}.\n\n"
+            "Structure : Titre, introduction, trois parties distinctes, conclusion.\n"
         )
 
-        ids = self.tokenizer(prompt, return_tensors="pt")
-
-        out = self.model.generate(
-            **ids,
+        inputs = self.tokenizer(prompt, return_tensors="pt")
+        output = self.model.generate(
+            **inputs,
             max_new_tokens=self.max_new,
-            do_sample=False,          # beam search déterministe
+            do_sample=False,
             num_beams=4,
-            temperature=temperature,  # influe peu car do_sample=False
-            repetition_penalty=1.20,
+            repetition_penalty=1.2,
         )
-        text = self.tokenizer.decode(out[0], skip_special_tokens=True)
-        # on retire le prompt
-        return "\n".join(text.splitlines()[len(prompt.splitlines()):]).strip()
+        generated = self.tokenizer.decode(output[0], skip_special_tokens=True)
+
+        # Enlever le prompt initial de la sortie
+        return generated.strip()

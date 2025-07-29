@@ -1,94 +1,90 @@
-"""
-pipeline.py
-Génère un article, son résumé, calcule la similarité, filtre le résumé,
-crée une image d’illustration, puis sauvegarde le tout dans un répertoire.
-
-Usage CLI :
-    python pipeline.py "Sujet de l'article" --out_dir=outputs --no-image --temp 0.7
-"""
-
-import os, argparse, datetime as dt
+# pipeline.py
+import os, json, datetime as dt
 from pathlib import Path
+import argparse
 
 from article_generator import ArticleGenerator
-from summarization     import TextSummarizer        # même classe que ton fichier
-from similarity        import SimilarityChecker
-from ethical_filter_v2 import ethical_filter       # ou ethical_filter (mono)
-from image_gen         import ImageGenerator
+from summarization import TextSummarizer
+from similarity import SimilarityChecker
+from ethical_filter_v2 import ethical_filter
+from image_gen import ImageGenerator
 
-# ──────────────────────────────────────────────
-# 0. Instanciation unique
-# ──────────────────────────────────────────────
-article_gen = ArticleGenerator()         # distilgpt2
-sum_gen     = TextSummarizer()           # distilbart-xsum
-sim_checker = SimilarityChecker()
-img_gen     = ImageGenerator()           # Stable Diffusion Turbo
+# Chargement unique des modèles
+gen   = ArticleGenerator()
+summ  = TextSummarizer()
+simch = SimilarityChecker()
+imgg  = ImageGenerator(steps=15)
 
-# ──────────────────────────────────────────────
-# 1. Fonction principale
-# ──────────────────────────────────────────────
-def run(topic: str,
-        out_dir: str = "outputs",
-        temperature: float = 0.8,
-        with_image: bool = True) -> None:
-    """Exécute le pipeline complet et écrit out_dir/article_<date>.md"""
-    Path(out_dir).mkdir(parents=True, exist_ok=True)
+def run_pipeline(topic: str, out_dir: str = "outputs", with_image: bool = True) -> None:
+    print(f"📌 Sujet : {topic}")
+    timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    article_dir = Path(out_dir) / timestamp
+    article_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Article
     print("🧠 Génération de l'article…")
-    article = article_gen.generate(topic, temperature=temperature)
+    article = gen.generate(topic)
+    if article.lower().count("sexy") > 5 or article.count("Article:") > 5:
+        raise ValueError("⚠️ Article incohérent détecté.")
 
-    # 2. Résumé
     print("📚 Résumé…")
-    summary = sum_gen.summarize(article)
+    summary = summ.summarize(article)
 
-    # 3. Similarité
-    sim_score = sim_checker.compare(article, summary)
+    print("📏 Similarité article/résumé…")
+    sim_score = simch.compare(article, summary)
 
-    # 4. Filtrage
+    print("🔍 Filtrage éthique…")
     filt = ethical_filter(summary)
 
-    # 5. Image optionnelle
-    img_path_rel = ""
+    img_filename = None
     if with_image:
-        print("🎨 Image…")
-        img_file = f"img_{dt.datetime.now():%Y%m%d_%H%M%S}.png"
-        img_path_abs = Path(out_dir) / img_file
-        img_gen.generate(topic, path=str(img_path_abs))
-        img_path_rel = f"![Illustration]({img_file})"
+        print("🎨 Génération de l’image…")
+        img_path = article_dir / "illustration.png"
+        prompt = f"{topic}, vector illustration, flat design, clean lines, vibrant colors"
+        imgg.generate(prompt, negative="text, watermark, lowres, distorted, blurry", path=str(img_path))
+        img_filename = "illustration.png"
 
-    # 6. Sauvegarde Markdown
-    md_file = Path(out_dir) / f"article_{dt.datetime.now():%Y%m%d_%H%M%S}.md"
-    with md_file.open("w", encoding="utf-8") as f:
+    print("💾 Sauvegarde Markdown…")
+    with (article_dir / "article.md").open("w", encoding="utf-8") as f:
         f.write(f"# {topic}\n\n")
         f.write(article + "\n\n---\n")
         f.write(f"## Résumé\n{summary}\n\n")
-        f.write(f"### Similarité (article / résumé) : **{sim_score:.3f}**\n\n")
+        f.write(f"### Similarité : **{sim_score:.3f}**\n\n")
         f.write("### Filtrage éthique\n")
         if filt["flagged"]:
-            labels = ", ".join(filt["labels"])
-            f.write(f"⚠️ Contenu sensible détecté : **{labels}**\n\n")
-            f.write("```json\n" + str(filt["scores"]) + "\n```\n\n")
+            f.write(f"⚠️ Contenu sensible : {', '.join(filt['labels'])}\n\n")
+            f.write("```json\n" + json.dumps(filt["scores"], indent=2, ensure_ascii=False) + "\n```\n")
         else:
             f.write("✅ Aucun contenu problématique détecté.\n\n")
-        if img_path_rel:
-            f.write(img_path_rel + "\n")
+        if img_filename:
+            f.write(f"![Illustration]({img_filename})\n")
 
-    print(f"✅ Fichier écrit : {md_file}")
+    print("💾 Sauvegarde meta.json…")
+    meta = {
+        "title": topic,
+        "datetime": timestamp,
+        "summary": summary,
+        "similarity": round(sim_score, 3),
+        "flagged": filt["flagged"],
+        "labels": filt["labels"],
+        "image": img_filename
+    }
+    with (article_dir / "meta.json").open("w", encoding="utf-8") as f:
+        json.dump(meta, f, indent=2, ensure_ascii=False)
+
+    print(f"✅ Article généré : {article_dir.resolve()}")
 
 # ──────────────────────────────────────────────
-# 2. Interface CLI très simple
+# CLI
 # ──────────────────────────────────────────────
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Mini-pipeline blog.")
+    parser = argparse.ArgumentParser()
     parser.add_argument("topic", nargs="*", help="Sujet de l'article")
     parser.add_argument("--out_dir", default="outputs")
-    parser.add_argument("--temp", type=float, default=0.8, help="Temperature GPT-2")
-    parser.add_argument("--no-image", action="store_true", help="Désactive l'image")
+    parser.add_argument("--no-image", action="store_true", help="Désactiver la génération d'image")
     args = parser.parse_args()
 
-    topic_text = " ".join(args.topic) or "Les bénéfices du sommeil sur la productivité"
-    run(topic_text,
-        out_dir=args.out_dir,
-        temperature=args.temp,
-        with_image=not args.no_image)
+    topic_text = " ".join(args.topic).strip() or "Les avancées récentes de l'IA"
+    try:
+        run_pipeline(topic_text, args.out_dir, with_image=not args.no_image)
+    except Exception as e:
+        print(f"❌ Erreur : {e}")
